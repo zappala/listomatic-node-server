@@ -79,7 +79,6 @@ app.get('/api/items', function (req,res) {
 });
 
 app.post('/api/items', function (req,res) {
-	console.log(req.body);
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
 			Item.create({title:req.body.item.title,UserId:user.id}).then(function(item) {
@@ -92,16 +91,34 @@ app.post('/api/items', function (req,res) {
 	});
 });
 
-app.get('/api/items/<string:id>', function (req,res) {
+app.get('/api/items/:item_id', function (req,res) {
+	console.log(req.params.item_id);
 	res.send('Get an item');
 });
 
-app.put('/api/items/<string:id>', function (req,res) {
+app.put('/api/items/:item_id', function (req,res) {
+	console.log(req.params.item_id);
 	res.send('Update an item');
 });
 
-app.delete('/api/items/<string:id>', function (req,res) {
-	res.send('Delete an item');
+app.delete('/api/items/:item_id', function (req,res) {
+	console.log('got delete request');
+	console.log(req.params.item_id);
+	user = User.verifyToken(req.headers.authorization, function(user) {
+		if (user) {
+			Item.find(req.params.item_id).then(function(item) {
+				console.log(item.get());
+				if (item.UserId != user.id) {
+					res.sendStatus(403);
+				}
+				item.destroy().then(function() {
+					res.sendStatus(200);
+				});
+			});
+		} else {
+			res.sendStatus(403);
+		}
+	});
 });
 
 //
@@ -132,6 +149,11 @@ var User = sequelize.define('User', {
 	},
 	classMethods: {
 		verifyToken: function(token,cb) {
+			if (!token) {
+				cb(null);
+				return;
+			}
+			console.log('token',token);
 			jwt.verify(token, SECRET, function(err, decoded) {
 				User.find({where: {id: decoded.id}}).then(function(user) {
 					cb(user);
