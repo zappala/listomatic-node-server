@@ -39,13 +39,11 @@ app.post('/api/users/register', function (req, res) {
 			user.name = req.body.name;
 			user.password_hash = req.body.password;
 			user.save().then(function(user) {
-				console.log("Created User");
      			// send token
      			var token = jwt.sign({ id: user.id }, SECRET);
      			res.json({name: user.name, token: token});
      		});
 		} else {
-			console.log("User exists");
 			res.sendStatus("403");
 		}
 	});
@@ -55,12 +53,10 @@ app.post('/api/users/register', function (req, res) {
 app.post('/api/users/login', function (req, res) {
 	User.find({where: {username: req.body.username}}).then(function(user) {
 		if (user && user.checkPassword(req.body.password)) {
-			console.log("OK");
 			// need to send token
 			var token = jwt.sign({ id: user.id }, SECRET);
 			res.json({name: user.name, token: token});
 		} else {
-			console.log("No User");
 			res.sendStatus(403);
 		}
 	});
@@ -82,7 +78,6 @@ app.post('/api/items', function (req,res) {
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
 			Item.create({title:req.body.item.title,UserId:user.id}).then(function(item) {
-				console.log(item.get());
 				res.json({item:item.get()});
 			});
 		} else {
@@ -92,18 +87,40 @@ app.post('/api/items', function (req,res) {
 });
 
 app.get('/api/items/:item_id', function (req,res) {
-	console.log(req.params.item_id);
-	res.send('Get an item');
+	user = User.verifyToken(req.headers.authorization, function(user) {
+		if (user) {
+			Item.find(req.params.item_id).then(function(item) {
+				if (item.UserId != user.id) {
+					res.sendStatus(403);
+				}
+				res.json({item:item.get()});
+			});
+		} else {
+			res.sendStatus(403);
+		}
+	});
 });
 
 app.put('/api/items/:item_id', function (req,res) {
-	console.log(req.params.item_id);
-	res.send('Update an item');
+	user = User.verifyToken(req.headers.authorization, function(user) {
+		if (user) {
+			Item.find(req.params.item_id).then(function(item) {
+				if (item.UserId != user.id) {
+					res.sendStatus(403);
+				}
+				item.title = req.body.item.title;
+				item.completed = req.body.item.completed;
+				item.save().then(function() {
+					res.json({item:item.get()});
+				});
+			});
+		} else {
+			res.sendStatus(403);
+		}
+	});
 });
 
 app.delete('/api/items/:item_id', function (req,res) {
-	console.log('got delete request');
-	console.log(req.params.item_id);
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
 			Item.find(req.params.item_id).then(function(item) {
@@ -153,7 +170,6 @@ var User = sequelize.define('User', {
 				cb(null);
 				return;
 			}
-			console.log('token',token);
 			jwt.verify(token, SECRET, function(err, decoded) {
 				User.find({where: {id: decoded.id}}).then(function(user) {
 					cb(user);
