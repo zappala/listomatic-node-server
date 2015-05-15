@@ -34,16 +34,20 @@ app.use(express.static('public'));
 
 // register a user
 app.post('/api/users/register', function (req, res) {
+	// find or create the user with the given username
 	User.findOrCreate({where: {username: req.body.username}}).spread(function(user,created) {
 		if (created) {
+			// if this username is not taken, then create a user record
 			user.name = req.body.name;
 			user.password_hash = req.body.password;
 			user.save().then(function(user) {
-     			// send token
+     			// create a token
      			var token = jwt.sign({ id: user.id }, SECRET);
+     			// return value is JSON containing the user's name and token
      			res.json({name: user.name, token: token});
      		});
 		} else {
+			// return an error if the username is taken
 			res.sendStatus("403");
 		}
 	});
@@ -51,10 +55,13 @@ app.post('/api/users/register', function (req, res) {
 
 // login a user
 app.post('/api/users/login', function (req, res) {
+	// find the user with the given username
 	User.find({where: {username: req.body.username}}).then(function(user) {
+		// validate the user exists and the password is correct
 		if (user && user.checkPassword(req.body.password)) {
-			// need to send token
+			// create a token
 			var token = jwt.sign({ id: user.id }, SECRET);
+			// return value is JSON containing user's name and token
 			res.json({name: user.name, token: token});
 		} else {
 			res.sendStatus(403);
@@ -62,10 +69,14 @@ app.post('/api/users/login', function (req, res) {
 	});
 });
 
+// get all items for the user
 app.get('/api/items', function (req,res) {
+	// validate the supplied token
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
+			// if the token is valid, find all the user's items and return them
 			user.getItems().then(function(items) {
+				// return value is the list of items as JSON
 				res.json({items: items});
 			});
 		} else {
@@ -74,10 +85,14 @@ app.get('/api/items', function (req,res) {
 	});
 });
 
+// add an item
 app.post('/api/items', function (req,res) {
+	// validate the supplied token
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
+			// if the token is valid, create the item for the user
 			Item.create({title:req.body.item.title,UserId:user.id}).then(function(item) {
+				// return value is the item as JSON
 				res.json({item:item.get()});
 			});
 		} else {
@@ -86,13 +101,18 @@ app.post('/api/items', function (req,res) {
 	});
 });
 
+// get an item
 app.get('/api/items/:item_id', function (req,res) {
+	// validate the supplied token
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
+			// if the token is valid, then find the requested item
 			Item.find(req.params.item_id).then(function(item) {
+				// get the item if it belongs to the user, otherwise return an error
 				if (item.UserId != user.id) {
 					res.sendStatus(403);
 				}
+				// return value is the item as JSON
 				res.json({item:item.get()});
 			});
 		} else {
@@ -101,16 +121,21 @@ app.get('/api/items/:item_id', function (req,res) {
 	});
 });
 
+// update an item
 app.put('/api/items/:item_id', function (req,res) {
+	// validate the supplied token
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
+			// if the token is valid, then find the requested item
 			Item.find(req.params.item_id).then(function(item) {
+				// update the item if it belongs to the user, otherwise return an error
 				if (item.UserId != user.id) {
 					res.sendStatus(403);
 				}
 				item.title = req.body.item.title;
 				item.completed = req.body.item.completed;
 				item.save().then(function() {
+					// return value is the item as JSON
 					res.json({item:item.get()});
 				});
 			});
@@ -120,15 +145,19 @@ app.put('/api/items/:item_id', function (req,res) {
 	});
 });
 
+// delete an item
 app.delete('/api/items/:item_id', function (req,res) {
+	// validate the supplied token
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
+			// if the token is valid, then find the requested item
 			Item.find(req.params.item_id).then(function(item) {
-				console.log(item.get());
+				// delete the item if it belongs to this user, otherwise return an error
 				if (item.UserId != user.id) {
 					res.sendStatus(403);
 				}
 				item.destroy().then(function() {
+					// return value is 200
 					res.sendStatus(200);
 				});
 			});
@@ -155,21 +184,25 @@ var User = sequelize.define('User', {
 	}
 	],
 	setterMethods: {
+		// convert the password into a hash
 		password_hash: function(password) {
 			this.setDataValue('password_hash',bcrypt.hashSync(password, SALT));
 		}
 	},
 	instanceMethods: {
+		// check that the password hash matches
 		checkPassword: function(password) {
 			return bcrypt.compareSync(password,this.password_hash);
 		}
 	},
 	classMethods: {
+		// verify the token is valid
 		verifyToken: function(token,cb) {
 			if (!token) {
 				cb(null);
 				return;
 			}
+			// decrypt the token and verify that the encoded user id is valid
 			jwt.verify(token, SECRET, function(err, decoded) {
 				User.find({where: {id: decoded.id}}).then(function(user) {
 					cb(user);
@@ -202,6 +235,5 @@ var server = app.listen(3000, function () {
 	var host = server.address().address;
 	var port = server.address().port;
 
-	console.log('listomatic node server listening at http://%s:%s', host, port);
 
 });
