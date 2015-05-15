@@ -1,4 +1,4 @@
-# Listomatic Node.js server
+# list-o-matic Node.js server
 
 A simple list server to demonstrate a REST API that can be called from a front
 end or a third-party application. Uses Node.js and Express, with
