@@ -91,7 +91,7 @@ app.post('/api/items', function (req,res) {
 	user = User.verifyToken(req.headers.authorization, function(user) {
 		if (user) {
 			// if the token is valid, create the item for the user
-			Item.create({title:req.body.item.title,UserId:user.id}).then(function(item) {
+			Item.create({title:req.body.item.title,completed:false,UserId:user.id}).then(function(item) {
 				// return value is the item as JSON
 				res.json({item:item.get()});
 			});
