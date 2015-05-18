@@ -204,6 +204,10 @@ var User = sequelize.define('User', {
 			}
 			// decrypt the token and verify that the encoded user id is valid
 			jwt.verify(token, SECRET, function(err, decoded) {
+				if (!decoded) {
+					cb(null);
+					return;
+				}
 				User.find({where: {id: decoded.id}}).then(function(user) {
 					cb(user);
 				});
